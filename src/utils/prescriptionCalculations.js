@@ -233,12 +233,29 @@ export const matchesRange = (rangeStr, sphere, cylinder) => {
     }
 
     // Handle ADD ranges (for bifocal/progressive)
+    // Format: "+3/+ ADD" or "-3/+ ADD"
     if (rangeStr.includes('ADD')) {
         const match = rangeStr.match(/([+-]?\d+\.?\d*)/);
         if (match) {
             const baseValue = parseFloat(match[1]);
-            // For ADD ranges, check if sphere is within reasonable range
-            return Math.abs(sph) <= Math.abs(baseValue) + 1.0;
+
+            // Cylinder must be 0 for ADD ranges
+            if (cyl !== 0) {
+                return false;
+            }
+
+            // For positive ranges like "+3/+ ADD": sphere should be in [0, 0.25, 0.5, ..., +3.0]
+            // For negative ranges like "-3/+ ADD": sphere should be in [0, -0.25, -0.5, ..., -3.0]
+            if (baseValue > 0) {
+                // Positive range: sphere should be between 0 and baseValue (inclusive)
+                return sph >= 0 && sph <= baseValue;
+            } else if (baseValue < 0) {
+                // Negative range: sphere should be between baseValue and 0 (inclusive)
+                return sph <= 0 && sph >= baseValue;
+            } else {
+                // baseValue is 0
+                return sph === 0;
+            }
         }
     }
 
@@ -416,4 +433,78 @@ export const findLensOptions = (brandData, sphere, cylinder, axis, hasAddPower =
     // No matches found
     results.searchStrategy = 'No matches found in any category';
     return results;
+};
+
+/**
+ * Find ADD power matching options from brand data
+ * @param {object} brandData - Brand data object
+ * @param {object} distanceVision - Distance vision values {sphere, cylinder}
+ * @param {number} addPower - ADD power value
+ * @returns {object} Calculation results with best matches for ADD power
+ */
+export const findAddPowerOptions = (brandData, distanceVision, addPower) => {
+    if (!brandData) {
+        return { error: 'Brand data not available' };
+    }
+
+    // Validate 0.25 intervals
+    if (!validateQuarterInterval(distanceVision.sphere) || !validateQuarterInterval(distanceVision.cylinder) || !validateQuarterInterval(addPower)) {
+        return { error: 'Values must be in 0.25 intervals (e.g., -0.25, -0.50, -0.75, etc.)' };
+    }
+
+    const sph = parseFloat(distanceVision.sphere) || 0;
+    const cyl = parseFloat(distanceVision.cylinder) || 0;
+
+    const bifocalMatches = brandData["Bifocal KT"] ?
+        brandData["Bifocal KT"].filter(item => matchesRange(item.range, sph, cyl)) : [];
+
+    const progressiveMatches = brandData["Progressive"] ?
+        brandData["Progressive"].filter(item => matchesRange(item.range, sph, cyl)) : [];
+
+    const allMatches = [...bifocalMatches, ...progressiveMatches];
+
+    return {
+        original: { sphere: sph, cylinder: cyl, addPower },
+        matches: allMatches,
+        bestMatch: findBestMatch(allMatches, sph, cyl),
+        searchStrategy: 'ADD power calculation - searched in Bifocal KT and Progressive data'
+    };
+};
+
+/**
+ * Find Near Vision matching options from brand data
+ * @param {object} brandData - Brand data object
+ * @param {object} distanceVision - Distance vision values {sphere, cylinder}
+ * @param {number} addPower - ADD power value
+ * @returns {object} Calculation results with best matches for Near Vision
+ */
+export const findNearVisionOptions = (brandData, distanceVision, addPower) => {
+    if (!brandData) {
+        return { error: 'Brand data not available' };
+    }
+
+    // Validate 0.25 intervals
+    if (!validateQuarterInterval(distanceVision.sphere) || !validateQuarterInterval(distanceVision.cylinder) || !validateQuarterInterval(addPower)) {
+        return { error: 'Values must be in 0.25 intervals (e.g., -0.25, -0.50, -0.75, etc.)' };
+    }
+
+    const dvSphere = parseFloat(distanceVision.sphere) || 0;
+    const add = parseFloat(addPower) || 0;
+    const nvSphere = dvSphere + add;
+    const cyl = parseFloat(distanceVision.cylinder) || 0;
+
+    const bifocalMatches = brandData["Bifocal KT"] ?
+        brandData["Bifocal KT"].filter(item => matchesRange(item.range, nvSphere, cyl)) : [];
+
+    const progressiveMatches = brandData["Progressive"] ?
+        brandData["Progressive"].filter(item => matchesRange(item.range, nvSphere, cyl)) : [];
+
+    const allMatches = [...bifocalMatches, ...progressiveMatches];
+
+    return {
+        original: { distanceVision, addPower, nearVision: { sphere: nvSphere, cylinder: cyl } },
+        matches: allMatches,
+        bestMatch: findBestMatch(allMatches, nvSphere, cyl),
+        searchStrategy: 'Near Vision calculation - searched in Bifocal KT and Progressive data'
+    };
 };
