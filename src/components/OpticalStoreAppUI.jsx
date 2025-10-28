@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { availableBrands, loadBrandData } from '../utils/brandDataLoader';
-import { findLensOptions, findAddPowerOptions, findNearVisionOptions, validateQuarterInterval } from '../utils/prescriptionCalculations';
+import { findLensOptions, findAddPowerOptions, findNearVisionOptions, findCylKTOptions, validateQuarterInterval } from '../utils/prescriptionCalculations';
 
 const OpticalStoreAppUI = () => {
   // Brand selection state
@@ -124,36 +124,62 @@ const OpticalStoreAppUI = () => {
       return;
     }
 
-    // Validation for ADD calculation
-    if (!addCalculation.distanceVision.sphere || addCalculation.distanceVision.sphere === "") {
-      setCalculationError('Distance Vision Sphere value is required');
-      return;
+    // Get values, defaulting to 0 if empty
+    const dvSphere = parseFloat(addCalculation.distanceVision.sphere) || 0;
+    const dvCylinder = parseFloat(addCalculation.distanceVision.cylinder) || 0;
+    const dvAxis = parseFloat(addCalculation.distanceVision.axis) || 0;
+    const nvSphere = parseFloat(addCalculation.nearVision.sphere) || 0;
+    const nvCylinder = parseFloat(addCalculation.nearVision.cylinder) || 0;
+    const nvAxis = parseFloat(addCalculation.nearVision.axis) || 0;
+    let addPower = parseFloat(addCalculation.addPower) || 0;
+
+    // Auto-calculate ADD if empty: ADD = NV - DV
+    if ((!addCalculation.addPower || addCalculation.addPower === "") &&
+      (addCalculation.nearVision.sphere && addCalculation.nearVision.sphere !== "")) {
+      addPower = nvSphere - dvSphere;
+      // Update the state to show calculated value
+      setAddCalculation({
+        ...addCalculation,
+        addPower: addPower.toFixed(2)
+      });
     }
 
-    if (!addCalculation.addPower || addCalculation.addPower === "") {
-      setCalculationError('ADD Power value is required');
-      return;
-    }
+    // Check if cylinder value is provided (DV or NV) - trigger CYL_KT calculation
+    if (dvCylinder !== 0 || nvCylinder !== 0) {
+      // Use whichever cylinder is non-zero
+      const cylToUse = dvCylinder !== 0 ? dvCylinder : nvCylinder;
+      const axisToUse = dvCylinder !== 0 ? dvAxis : nvAxis;
 
-    // Validate ADD Power range (must be between +1.0 and +3.0)
-    const addPowerValue = parseFloat(addCalculation.addPower);
-    if (addPowerValue < 1.0 || addPowerValue > 3.0) {
-      setCalculationError('ADD Power must be between +1.0 and +3.0');
+      setIsCalculating(true);
+      setCalculationError(null);
+
+      try {
+        const results = findCylKTOptions(brandData, cylToUse, axisToUse);
+
+        if (results.error) {
+          setCalculationError(results.error);
+          setCalculationResults(null);
+        } else {
+          setCalculationResults(results);
+        }
+      } catch (error) {
+        setCalculationError('Error calculating CYL_KT options: ' + error.message);
+      } finally {
+        setIsCalculating(false);
+      }
       return;
     }
 
     // Validate 0.25 intervals
-    if (!validateQuarterInterval(addCalculation.distanceVision.sphere) ||
-      !validateQuarterInterval(addCalculation.distanceVision.cylinder) ||
-      !validateQuarterInterval(addCalculation.addPower)) {
+    if (!validateQuarterInterval(dvSphere) ||
+      !validateQuarterInterval(addPower)) {
       setCalculationError('Values must be in 0.25 intervals (e.g., -0.25, -0.50, -0.75, etc.)');
       return;
     }
 
-    // Validate cylinder is 0 for Bi-Focal KT
-    const cylinderValue = parseFloat(addCalculation.distanceVision.cylinder) || 0;
-    if (cylinderValue !== 0) {
-      setCalculationError('Cylinder must be 0 for Bi-Focal KT calculations');
+    // Validate ADD Power range (must be between +1.0 and +3.0)
+    if (addPower < 1.0 || addPower > 3.0) {
+      setCalculationError('ADD Power must be between +1.0 and +3.0');
       return;
     }
 
@@ -164,10 +190,10 @@ const OpticalStoreAppUI = () => {
       const results = findAddPowerOptions(
         brandData,
         {
-          sphere: addCalculation.distanceVision.sphere,
-          cylinder: addCalculation.distanceVision.cylinder || "0"
+          sphere: dvSphere.toString(),
+          cylinder: "0"
         },
-        addCalculation.addPower
+        addPower.toString()
       );
 
       if (results.error) {
@@ -253,6 +279,27 @@ const OpticalStoreAppUI = () => {
   const clearResults = () => {
     setCalculationResults(null);
     setCalculationError(null);
+
+    // Clear input fields based on current calculation mode
+    if (calculationMode === "single") {
+      setPrescription({
+        sphere: "",
+        cylinder: "",
+        axis: "",
+      });
+    } else if (calculationMode === "add-calculation") {
+      setAddCalculation({
+        distanceVision: { sphere: "", cylinder: "", axis: "" },
+        nearVision: { sphere: "", cylinder: "", axis: "" },
+        addPower: ""
+      });
+    } else if (calculationMode === "nv-calculation") {
+      setNearVisionCalculation({
+        distanceVision: { sphere: "", cylinder: "", axis: "" },
+        nearVision: { sphere: "", cylinder: "", axis: "" },
+        addPower: ""
+      });
+    }
   };
 
   return (
@@ -469,25 +516,38 @@ const OpticalStoreAppUI = () => {
                       </div>
                       <div className="card-body">
                         <div className="row">
-                          <div className="col-md-6">
+                          <div className="col-md-4">
                             <h6 className="text-primary">Distance Vision (DV)</h6>
-                            {/* DV Fields */}
                             <div className="form-group">
-                              <label>DV Sphere (Sph) *</label>
+                              <label>DV Sphere (Sph)</label>
                               <input
                                 type="number"
                                 step="0.25"
                                 className="form-control"
                                 value={addCalculation.distanceVision.sphere}
-                                onChange={(e) =>
-                                  setAddCalculation({
+                                onChange={(e) => {
+                                  const dvSph = e.target.value;
+                                  const newAddCalc = {
                                     ...addCalculation,
                                     distanceVision: {
                                       ...addCalculation.distanceVision,
-                                      sphere: e.target.value,
+                                      sphere: dvSph,
                                     },
-                                  })
-                                }
+                                  };
+
+                                  // Auto-calculate NV if ADD is provided: NV = DV + ADD
+                                  if (addCalculation.addPower && addCalculation.addPower !== "") {
+                                    const dv = parseFloat(dvSph) || 0;
+                                    const add = parseFloat(addCalculation.addPower) || 0;
+                                    const nv = dv + add;
+                                    newAddCalc.nearVision = {
+                                      ...newAddCalc.nearVision,
+                                      sphere: nv.toFixed(2)
+                                    };
+                                  }
+
+                                  setAddCalculation(newAddCalc);
+                                }}
                                 placeholder="e.g., -2.50, +1.25"
                               />
                             </div>
@@ -503,6 +563,10 @@ const OpticalStoreAppUI = () => {
                                     ...addCalculation,
                                     distanceVision: {
                                       ...addCalculation.distanceVision,
+                                      cylinder: e.target.value,
+                                    },
+                                    nearVision: {
+                                      ...addCalculation.nearVision,
                                       cylinder: e.target.value,
                                     },
                                   })
@@ -525,36 +589,18 @@ const OpticalStoreAppUI = () => {
                                       ...addCalculation.distanceVision,
                                       axis: e.target.value,
                                     },
+                                    nearVision: {
+                                      ...addCalculation.nearVision,
+                                      axis: e.target.value,
+                                    },
                                   })
                                 }
-                                placeholder="1-180° (required if cylinder entered)"
+                                placeholder="1-180° (optional)"
                               />
                             </div>
                           </div>
-                          <div className="col-md-6">
-                            <h6 className="text-success">ADD Power</h6>
-                            <div className="form-group">
-                              <label>ADD Power *</label>
-                              <input
-                                type="number"
-                                step="0.25"
-                                className="form-control"
-                                value={addCalculation.addPower}
-                                onChange={(e) =>
-                                  setAddCalculation({
-                                    ...addCalculation,
-                                    addPower: e.target.value,
-                                  })
-                                }
-                                placeholder="e.g., +1.00, +2.50"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="row">
-                          <div className="col-md-6">
-                            <h6 className="text-primary">Near Vision (NV)</h6>
-                            {/* NV Fields */}
+                          <div className="col-md-4">
+                            <h6 className="text-success">Near Vision (NV)</h6>
                             <div className="form-group">
                               <label>NV Sphere (Sph)</label>
                               <input
@@ -562,15 +608,26 @@ const OpticalStoreAppUI = () => {
                                 step="0.25"
                                 className="form-control"
                                 value={addCalculation.nearVision.sphere}
-                                onChange={(e) =>
-                                  setAddCalculation({
+                                onChange={(e) => {
+                                  const nvSph = e.target.value;
+                                  const newAddCalc = {
                                     ...addCalculation,
                                     nearVision: {
                                       ...addCalculation.nearVision,
-                                      sphere: e.target.value,
+                                      sphere: nvSph,
                                     },
-                                  })
-                                }
+                                  };
+
+                                  // Auto-calculate ADD if DV is provided: ADD = NV - DV
+                                  if (addCalculation.distanceVision.sphere && addCalculation.distanceVision.sphere !== "") {
+                                    const nv = parseFloat(nvSph) || 0;
+                                    const dv = parseFloat(addCalculation.distanceVision.sphere) || 0;
+                                    const add = nv - dv;
+                                    newAddCalc.addPower = add.toFixed(2);
+                                  }
+
+                                  setAddCalculation(newAddCalc);
+                                }}
                                 placeholder="e.g., -1.50, +2.00"
                               />
                             </div>
@@ -610,8 +667,42 @@ const OpticalStoreAppUI = () => {
                                     },
                                   })
                                 }
-                                placeholder="1-180° (required if cylinder entered)"
+                                placeholder="1-180° (optional)"
                               />
+                            </div>
+                          </div>
+                          <div className="col-md-4">
+                            <h6 className="text-info">ADD Power</h6>
+                            <div className="form-group">
+                              <label>ADD Power</label>
+                              <input
+                                type="number"
+                                step="0.25"
+                                className="form-control"
+                                value={addCalculation.addPower}
+                                onChange={(e) => {
+                                  const addPwr = e.target.value;
+                                  const newAddCalc = {
+                                    ...addCalculation,
+                                    addPower: addPwr,
+                                  };
+
+                                  // Auto-calculate NV if DV is provided: NV = DV + ADD
+                                  if (addCalculation.distanceVision.sphere && addCalculation.distanceVision.sphere !== "") {
+                                    const dv = parseFloat(addCalculation.distanceVision.sphere) || 0;
+                                    const add = parseFloat(addPwr) || 0;
+                                    const nv = dv + add;
+                                    newAddCalc.nearVision = {
+                                      ...newAddCalc.nearVision,
+                                      sphere: nv.toFixed(2)
+                                    };
+                                  }
+
+                                  setAddCalculation(newAddCalc);
+                                }}
+                                placeholder="e.g., +1.00, +2.50"
+                              />
+                              <small className="text-muted">Auto-calculated from NV - DV if empty</small>
                             </div>
                           </div>
                         </div>
@@ -858,15 +949,27 @@ const OpticalStoreAppUI = () => {
 
                         <div className="row">
                           {/* Original Prescription */}
-                          <div className="col-md-6 mb-3">
+                          <div className={`${calculationResults.transposed ? 'col-md-6' : 'col-md-12'} mb-3`}>
                             <div className="card">
                               <div className="card-header bg-primary text-white">
                                 <h6 className="mb-0">Original Prescription</h6>
                               </div>
                               <div className="card-body">
-                                <p><strong>Sphere:</strong> {calculationResults.original.sphere}</p>
-                                <p><strong>Cylinder:</strong> {calculationResults.original.cylinder}</p>
-                                <p><strong>Axis:</strong> {calculationResults.original.axis}°</p>
+                                {calculationResults.original.sphere !== undefined && (
+                                  <p><strong>Sphere:</strong> {calculationResults.original.sphere}</p>
+                                )}
+                                {calculationResults.original.cylinder !== undefined && (
+                                  <p><strong>Cylinder:</strong> {calculationResults.original.cylinder}</p>
+                                )}
+                                {calculationResults.original.axis !== undefined && (
+                                  <p><strong>Axis:</strong> {calculationResults.original.axis}°</p>
+                                )}
+                                {calculationResults.mappedAxis && (
+                                  <p><strong>Mapped Axis (CYL_KT):</strong> {calculationResults.mappedAxis}°</p>
+                                )}
+                                {calculationResults.original.addPower && (
+                                  <p><strong>ADD Power:</strong> {calculationResults.original.addPower}</p>
+                                )}
                                 {calculationResults.categoryInfo && (
                                   <p><strong>Category:</strong> {calculationResults.categoryInfo.category}</p>
                                 )}
@@ -874,20 +977,22 @@ const OpticalStoreAppUI = () => {
                             </div>
                           </div>
 
-                          {/* Transposed Prescription */}
-                          <div className="col-md-6 mb-3">
-                            <div className="card">
-                              <div className="card-header bg-secondary text-white">
-                                <h6 className="mb-0">Transposed Prescription</h6>
-                              </div>
-                              <div className="card-body">
-                                <p><strong>Sphere:</strong> {calculationResults.transposed.sphere}</p>
-                                <p><strong>Cylinder:</strong> {calculationResults.transposed.cylinder}</p>
-                                <p><strong>Axis:</strong> {calculationResults.transposed.axis}°</p>
-                                <small className="text-muted">Used for category determination</small>
+                          {/* Transposed Prescription - Only for Single Vision */}
+                          {calculationResults.transposed && (
+                            <div className="col-md-6 mb-3">
+                              <div className="card">
+                                <div className="card-header bg-secondary text-white">
+                                  <h6 className="mb-0">Transposed Prescription</h6>
+                                </div>
+                                <div className="card-body">
+                                  <p><strong>Sphere:</strong> {calculationResults.transposed.sphere}</p>
+                                  <p><strong>Cylinder:</strong> {calculationResults.transposed.cylinder}</p>
+                                  <p><strong>Axis:</strong> {calculationResults.transposed.axis}°</p>
+                                  <small className="text-muted">Used for category determination</small>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
                         {/* Best Match */}

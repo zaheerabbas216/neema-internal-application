@@ -292,9 +292,13 @@ const enterpriseData = {
         },
         {
             range: "-5/+ ADD",
+            HC: 1000,
+            ARC: 2800,
+            HC_PG: 3000,
         },
         {
             range: "-6/+ ADD",
+            HC: 1500,
         },
     ],
     CYL_KT: [

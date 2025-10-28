@@ -239,19 +239,44 @@ export const matchesRange = (rangeStr, sphere, cylinder) => {
         if (match) {
             const baseValue = parseFloat(match[1]);
 
-            // Cylinder must be 0 for ADD ranges
+            // Cylinder can be 0 or empty (optional)
+            // If cylinder is provided and not 0, return false
             if (cyl !== 0) {
                 return false;
             }
 
-            // For positive ranges like "+3/+ ADD": sphere should be in [0, 0.25, 0.5, ..., +3.0]
-            // For negative ranges like "-3/+ ADD": sphere should be in [0, -0.25, -0.5, ..., -3.0]
+            // For positive ranges like "+3/+ ADD"
+            // +3/+ADD matches 0 to +3.0
+            // +4/+ADD matches 3.25 to +4.0
+            // +5/+ADD matches 4.25 to +5.0
+            // +6/+ADD matches 5.25 to +6.0
             if (baseValue > 0) {
-                // Positive range: sphere should be between 0 and baseValue (inclusive)
-                return sph >= 0 && sph <= baseValue;
-            } else if (baseValue < 0) {
-                // Negative range: sphere should be between baseValue and 0 (inclusive)
-                return sph <= 0 && sph >= baseValue;
+                let lowerLimit = 0;
+
+                // For ranges above +3, calculate the lower limit
+                if (baseValue > 3) {
+                    lowerLimit = baseValue - 1 + 0.25;
+                }
+
+                const upperLimit = baseValue;
+                return sph >= lowerLimit && sph <= upperLimit;
+            }
+            // For negative ranges like "-2/+ ADD"
+            // -2/+ADD matches 0 to -2.0
+            // -3/+ADD matches -2.25 to -3.0
+            // -4/+ADD matches -3.25 to -4.0
+            // -5/+ADD matches -4.25 to -5.0
+            // -6/+ADD matches -5.25 to -6.0
+            else if (baseValue < 0) {
+                let upperLimit = 0;
+
+                // For ranges below -2, calculate the upper limit
+                if (baseValue < -2) {
+                    upperLimit = baseValue + 1 - 0.25;
+                }
+
+                const lowerLimit = baseValue;
+                return sph >= lowerLimit && sph <= upperLimit;
             } else {
                 // baseValue is 0
                 return sph === 0;
@@ -260,9 +285,7 @@ export const matchesRange = (rangeStr, sphere, cylinder) => {
     }
 
     return false;
-};
-
-/**
+};/**
  * Find the most specific matching lens option (best fit)
  * @param {array} matches - Array of matching lens options
  * @param {number} sphere - Sphere value
@@ -506,5 +529,151 @@ export const findNearVisionOptions = (brandData, distanceVision, addPower) => {
         matches: allMatches,
         bestMatch: findBestMatch(allMatches, nvSphere, cyl),
         searchStrategy: 'Near Vision calculation - searched in Bifocal KT and Progressive data'
+    };
+};
+
+/**
+ * Map axis value to CYL_KT standard axis (45, 90, 135, or 180)
+ * @param {number} axis - Axis value (0-180)
+ * @returns {number} Mapped axis value
+ */
+export const mapAxisForCylKT = (axis) => {
+    const ax = parseFloat(axis) || 0;
+
+    // 21-69 → 45
+    if (ax >= 21 && ax <= 69) {
+        return 45;
+    }
+    // 70-110 → 90
+    else if (ax >= 70 && ax <= 110) {
+        return 90;
+    }
+    // 111-155 → 135
+    else if (ax >= 111 && ax <= 155) {
+        return 135;
+    }
+    // 156-180 and 0-20 → 180
+    else if ((ax >= 156 && ax <= 180) || (ax >= 0 && ax <= 20)) {
+        return 180;
+    }
+
+    // Default to 180
+    return 180;
+};
+
+/**
+ * Check if cylinder and axis match CYL_KT range
+ * @param {string} rangeStr - Range string from CYL_KT data (e.g., "+2, 180", "-4, 90")
+ * @param {number} cylinder - Cylinder value
+ * @param {number} axis - Axis value
+ * @returns {boolean} True if matches the range
+ */
+export const matchesCylKTRange = (rangeStr, cylinder, axis) => {
+    if (!rangeStr) return false;
+
+    const cyl = parseFloat(cylinder) || 0;
+    const ax = parseFloat(axis) || 0;
+
+    // Parse the range string (e.g., "+2, 180" or "-4, 90")
+    const parts = rangeStr.split(',').map(p => p.trim());
+    if (parts.length !== 2) return false;
+
+    const rangeCyl = parseFloat(parts[0]);
+    const rangeAxis = parseFloat(parts[1]);
+
+    // Map the input axis to standard CYL_KT axis
+    const mappedAxis = mapAxisForCylKT(ax);
+
+    // Check if axis matches
+    if (mappedAxis !== rangeAxis) {
+        return false;
+    }
+
+    // Check cylinder range with sequential logic
+    // +2 means: 0.25 to 2.0
+    // +3 means: 2.25 to 3.0
+    // +4 means: 3.25 to 4.0
+    // -2 means: -0.25 to -2.0
+    // -3 means: -2.25 to -3.0
+    // -4 means: -3.25 to -4.0
+
+    let lowerLimit, upperLimit;
+
+    if (rangeCyl > 0) {
+        // Positive cylinder
+        if (rangeCyl === 2) {
+            lowerLimit = 0.25;
+            upperLimit = 2.0;
+        } else if (rangeCyl === 3) {
+            lowerLimit = 2.25;
+            upperLimit = 3.0;
+        } else if (rangeCyl === 4) {
+            lowerLimit = 3.25;
+            upperLimit = 4.0;
+        } else {
+            // For any other positive value, use default logic
+            lowerLimit = 0.25;
+            upperLimit = rangeCyl;
+        }
+        return cyl > 0 && cyl >= lowerLimit && cyl <= upperLimit;
+
+    } else if (rangeCyl < 0) {
+        // Negative cylinder
+        if (rangeCyl === -2) {
+            lowerLimit = -0.25;
+            upperLimit = -2.0;
+        } else if (rangeCyl === -3) {
+            lowerLimit = -2.25;
+            upperLimit = -3.0;
+        } else if (rangeCyl === -4) {
+            lowerLimit = -3.25;
+            upperLimit = -4.0;
+        } else {
+            // For any other negative value, use default logic
+            lowerLimit = -0.25;
+            upperLimit = rangeCyl;
+        }
+        return cyl < 0 && cyl >= upperLimit && cyl <= lowerLimit;
+    }
+
+    return false;
+};
+
+/**
+ * Find CYL_KT matching options from brand data
+ * @param {object} brandData - Brand data object
+ * @param {number} cylinder - Cylinder value
+ * @param {number} axis - Axis value
+ * @returns {object} Calculation results with best matches for CYL_KT
+ */
+export const findCylKTOptions = (brandData, cylinder, axis) => {
+    if (!brandData) {
+        return { error: 'Brand data not available' };
+    }
+
+    // Validate 0.25 intervals for cylinder
+    if (!validateQuarterInterval(cylinder)) {
+        return { error: 'Cylinder value must be in 0.25 intervals (e.g., -0.25, -0.50, -0.75, etc.)' };
+    }
+
+    const cyl = parseFloat(cylinder) || 0;
+    const ax = parseFloat(axis) || 0;
+
+    // Cylinder must not be 0 for CYL_KT
+    if (cyl === 0) {
+        return { error: 'Cylinder must be non-zero for CYL_KT calculations' };
+    }
+
+    const cylKTMatches = brandData["CYL_KT"] ?
+        brandData["CYL_KT"].filter(item => matchesCylKTRange(item.range, cyl, ax)) : [];
+
+    const mappedAxis = mapAxisForCylKT(ax);
+
+    return {
+        original: { cylinder: cyl, axis: ax },
+        mappedAxis: mappedAxis,
+        matches: cylKTMatches,
+        bestMatch: cylKTMatches.length > 0 ? cylKTMatches[0] : null,
+        searchStrategy: `CYL_KT calculation - Axis ${ax}° mapped to ${mappedAxis}°`
     };
 };
