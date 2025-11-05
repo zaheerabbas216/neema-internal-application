@@ -495,11 +495,11 @@ export const findAddPowerOptions = (brandData, distanceVision, addPower) => {
 };
 
 /**
- * Find Near Vision matching options from brand data
+ * Find Near Vision matching options from brand data (Progressive SPH)
  * @param {object} brandData - Brand data object
  * @param {object} distanceVision - Distance vision values {sphere, cylinder}
  * @param {number} addPower - ADD power value
- * @returns {object} Calculation results with best matches for Near Vision
+ * @returns {object} Calculation results with best matches for Progressive SPH
  */
 export const findNearVisionOptions = (brandData, distanceVision, addPower) => {
     if (!brandData) {
@@ -511,24 +511,18 @@ export const findNearVisionOptions = (brandData, distanceVision, addPower) => {
         return { error: 'Values must be in 0.25 intervals (e.g., -0.25, -0.50, -0.75, etc.)' };
     }
 
-    const dvSphere = parseFloat(distanceVision.sphere) || 0;
-    const add = parseFloat(addPower) || 0;
-    const nvSphere = dvSphere + add;
+    const sph = parseFloat(distanceVision.sphere) || 0;
     const cyl = parseFloat(distanceVision.cylinder) || 0;
 
-    const bifocalMatches = brandData["Bifocal KT"] ?
-        brandData["Bifocal KT"].filter(item => matchesRange(item.range, nvSphere, cyl)) : [];
-
-    const progressiveMatches = brandData["Progressive"] ?
-        brandData["Progressive"].filter(item => matchesRange(item.range, nvSphere, cyl)) : [];
-
-    const allMatches = [...bifocalMatches, ...progressiveMatches];
+    // Search in PROGRESSIVE_SPH data (same logic as Bi-Focal KT)
+    const progressiveSphMatches = brandData["PROGRESSIVE_SPH"] ?
+        brandData["PROGRESSIVE_SPH"].filter(item => matchesRange(item.range, sph, cyl)) : [];
 
     return {
-        original: { distanceVision, addPower, nearVision: { sphere: nvSphere, cylinder: cyl } },
-        matches: allMatches,
-        bestMatch: findBestMatch(allMatches, nvSphere, cyl),
-        searchStrategy: 'Near Vision calculation - searched in Bifocal KT and Progressive data'
+        original: { sphere: sph, cylinder: cyl, addPower },
+        matches: progressiveSphMatches,
+        bestMatch: findBestMatch(progressiveSphMatches, sph, cyl),
+        searchStrategy: 'Progressive SPH calculation - searched in PROGRESSIVE_SPH data based on DV sphere'
     };
 };
 
@@ -675,5 +669,500 @@ export const findCylKTOptions = (brandData, cylinder, axis) => {
         matches: cylKTMatches,
         bestMatch: cylKTMatches.length > 0 ? cylKTMatches[0] : null,
         searchStrategy: `CYL_KT calculation - Axis ${ax}° mapped to ${mappedAxis}°`
+    };
+};
+
+/**
+ * Find Progressive CYL matching options from brand data
+ * @param {object} brandData - Brand data object
+ * @param {number} cylinder - Cylinder value
+ * @param {number} axis - Axis value
+ * @returns {object} Calculation results with best matches for Progressive CYL
+ */
+export const findProgressiveCylOptions = (brandData, cylinder, axis) => {
+    if (!brandData) {
+        return { error: 'Brand data not available' };
+    }
+
+    // Validate 0.25 intervals for cylinder
+    if (!validateQuarterInterval(cylinder)) {
+        return { error: 'Cylinder value must be in 0.25 intervals (e.g., -0.25, -0.50, -0.75, etc.)' };
+    }
+
+    const cyl = parseFloat(cylinder) || 0;
+    const ax = parseFloat(axis) || 0;
+
+    // Cylinder must not be 0 for Progressive CYL
+    if (cyl === 0) {
+        return { error: 'Cylinder must be non-zero for Progressive CYL calculations' };
+    }
+
+    const progressiveCylMatches = brandData["PROGRESSIVE__CYL"] ?
+        brandData["PROGRESSIVE__CYL"].filter(item => matchesCylKTRange(item.range, cyl, ax)) : [];
+
+    const mappedAxis = mapAxisForCylKT(ax);
+
+    return {
+        original: { cylinder: cyl, axis: ax },
+        mappedAxis: mappedAxis,
+        matches: progressiveCylMatches,
+        bestMatch: progressiveCylMatches.length > 0 ? progressiveCylMatches[0] : null,
+        searchStrategy: `Progressive CYL calculation - Axis ${ax}° mapped to ${mappedAxis}°`
+    };
+};
+
+/**
+ * Transpose prescription for COMP_KT
+ * Formula: New Sphere = Old Sphere + Old Cylinder
+ *          New Cylinder = -(Old Cylinder)
+ *          New Axis = Old Axis ± 90° (if over 180°, subtract 180°)
+ * @param {number} sphere - Sphere value
+ * @param {number} cylinder - Cylinder value
+ * @param {number} axis - Axis value
+ * @returns {object} Transposed prescription
+ */
+export const transposeCompKTPrescription = (sphere, cylinder, axis) => {
+    const sph = parseFloat(sphere) || 0;
+    const cyl = parseFloat(cylinder) || 0;
+    const ax = parseFloat(axis) || 0;
+
+    const newSphere = sph + cyl;
+    const newCylinder = -cyl;
+    let newAxis = ax + 90;
+
+    if (newAxis > 180) {
+        newAxis = newAxis - 180;
+    }
+
+    return {
+        sphere: newSphere,
+        cylinder: newCylinder,
+        axis: newAxis
+    };
+};
+
+/**
+ * Map axis to standard COMP_KT axis values (45°, 90°, 135°, 180°)
+ * @param {number} axis - Input axis value
+ * @returns {number} Mapped axis
+ */
+export const mapAxisForCompKT = (axis) => {
+    const ax = parseFloat(axis) || 0;
+
+    // 21-69 → 45°
+    if (ax >= 21 && ax <= 69) {
+        return 45;
+    }
+    // 70-110 → 90°
+    if (ax >= 70 && ax <= 110) {
+        return 90;
+    }
+    // 111-155 → 135°
+    if (ax >= 111 && ax <= 155) {
+        return 135;
+    }
+    // 156-180 or 0-20 → 180°
+    return 180;
+};
+
+/**
+ * Get sphere range category for COMP_KT
+ * Similar to CYL_KT logic: +2 = 0.25 to 2.0, +3 = 2.25 to 3.0, etc.
+ * @param {number} sphere - Sphere value
+ * @returns {number} Range category (2, 3, 4, etc.)
+ */
+export const getCompKTSphereRange = (sphere) => {
+    const sph = Math.abs(parseFloat(sphere) || 0);
+
+    if (sph >= 0.25 && sph <= 2.0) return 2;
+    if (sph >= 2.25 && sph <= 3.0) return 3;
+    if (sph >= 3.25 && sph <= 4.0) return 4;
+    if (sph >= 4.25 && sph <= 5.0) return 5;
+    if (sph >= 5.25 && sph <= 6.0) return 6;
+
+    return 0; // No match
+};
+
+/**
+ * Get cylinder range category for COMP_KT
+ * @param {number} cylinder - Cylinder value
+ * @returns {number} Range category (1, 2, 3, etc.)
+ */
+export const getCompKTCylinderRange = (cylinder) => {
+    const cyl = Math.abs(parseFloat(cylinder) || 0);
+
+    if (cyl >= 0.25 && cyl <= 1.0) return 1;
+    if (cyl >= 1.25 && cyl <= 2.0) return 2;
+    if (cyl >= 2.25 && cyl <= 3.0) return 3;
+    if (cyl >= 3.25 && cyl <= 4.0) return 4;
+
+    return 0; // No match
+};
+
+/**
+ * Check if prescription matches COMP_KT range
+ * @param {string} rangeStr - Range string from data (e.g., "+2/+1 180°")
+ * @param {number} sphere - Sphere value
+ * @param {number} cylinder - Cylinder value
+ * @param {number} axis - Axis value
+ * @returns {boolean} True if matches
+ */
+export const matchesCompKTRange = (rangeStr, sphere, cylinder, axis) => {
+    if (!rangeStr) return false;
+
+    const sph = parseFloat(sphere) || 0;
+    const cyl = parseFloat(cylinder) || 0;
+    const ax = parseFloat(axis) || 0;
+
+    // Parse range: "+2/+1 180°" or "-2/-1 90°" or "+1/-2 180°"
+    const match = rangeStr.match(/([-+]?\d+)\/([-+]?\d+)\s+(\d+)°/);
+    if (!match) return false;
+
+    const rangeSph = parseInt(match[1]);
+    const rangeCyl = parseInt(match[2]);
+    const rangeAxis = parseInt(match[3]);
+
+    // Map the input axis
+    const mappedAxis = mapAxisForCompKT(ax);
+    if (mappedAxis !== rangeAxis) {
+        return false;
+    }
+
+    // Get sphere and cylinder range categories for input values
+    const sphCategory = getCompKTSphereRange(sph);
+    const cylCategory = getCompKTCylinderRange(cyl);
+
+    // Get sphere and cylinder range categories for range values
+    const rangeSphCategory = getCompKTSphereRange(rangeSph);
+    const rangeCylCategory = getCompKTCylinderRange(rangeCyl);
+
+    // Check sign matches
+    const sphSign = sph >= 0 ? 1 : -1;
+    const cylSign = cyl >= 0 ? 1 : -1;
+    const rangeSphSign = rangeSph >= 0 ? 1 : -1;
+    const rangeCylSign = rangeCyl >= 0 ? 1 : -1;
+
+    // Match sphere: category must match and sign must match
+    if (sphCategory !== rangeSphCategory || sphSign !== rangeSphSign) {
+        return false;
+    }
+
+    // Match cylinder: category must match and sign must match
+    if (cylCategory !== rangeCylCategory || cylSign !== rangeCylSign) {
+        return false;
+    }
+
+    return true;
+};
+
+/**
+ * Get priority score for COMP_KT matches
+ * Priority: 1. +,+ (both positive)  2. -,- (both negative)  3. +,- or -,+ (mixed)
+ * @param {string} rangeStr - Range string
+ * @returns {number} Priority score (lower is better)
+ */
+export const getCompKTPriority = (rangeStr) => {
+    const match = rangeStr.match(/([-+]?\d+)\/([-+]?\d+)/);
+    if (!match) return 999;
+
+    const sphSign = match[1].startsWith('-') ? -1 : 1;
+    const cylSign = match[2].startsWith('-') ? -1 : 1;
+
+    // Priority 1: Both positive
+    if (sphSign > 0 && cylSign > 0) return 1;
+    // Priority 2: Both negative
+    if (sphSign < 0 && cylSign < 0) return 2;
+    // Priority 3: Mixed signs
+    return 3;
+};
+
+/**
+ * Find COMP_KT matching options from brand data
+ * @param {object} brandData - Brand data object
+ * @param {number} dvSphere - Distance Vision sphere
+ * @param {number} dvCylinder - Distance Vision cylinder
+ * @param {number} dvAxis - Distance Vision axis
+ * @param {number} nvSphere - Near Vision sphere (optional)
+ * @param {number} addPower - ADD power (optional)
+ * @returns {object} Calculation results with best matches for COMP_KT
+ */
+export const findCompKTOptions = (brandData, dvSphere, dvCylinder, dvAxis, nvSphere = null, addPower = null) => {
+    if (!brandData) {
+        return { error: 'Brand data not available' };
+    }
+
+    // Validate 0.25 intervals
+    if (!validateQuarterInterval(dvSphere)) {
+        return { error: 'DV Sphere value must be in 0.25 intervals' };
+    }
+    if (!validateQuarterInterval(dvCylinder)) {
+        return { error: 'DV Cylinder value must be in 0.25 intervals' };
+    }
+
+    const dvSph = parseFloat(dvSphere) || 0;
+    const dvCyl = parseFloat(dvCylinder) || 0;
+    const dvAx = parseFloat(dvAxis) || 0;
+
+    // Calculate ADD or NV if one is provided
+    let calculatedAdd = addPower;
+    let calculatedNV = nvSphere;
+
+    if (nvSphere && !addPower) {
+        // Calculate ADD = NV - DV
+        calculatedAdd = parseFloat(nvSphere) - dvSph;
+    } else if (addPower && !nvSphere) {
+        // Calculate NV = DV + ADD
+        calculatedNV = dvSph + parseFloat(addPower);
+    }
+
+    // Validate ADD range (1.0 to 3.0)
+    if (calculatedAdd !== null && (calculatedAdd < 1.0 || calculatedAdd > 3.0)) {
+        return { error: 'ADD Power must be between 1.0 and 3.0' };
+    }
+
+    // Cylinders must not be 0 for COMP_KT
+    if (dvCyl === 0) {
+        return { error: 'Cylinder must be non-zero for COMP_KT calculations' };
+    }
+
+    // Find matches for original prescription
+    const originalMatches = brandData["COMP_KT"] ?
+        brandData["COMP_KT"].filter(item => matchesCompKTRange(item.range, dvSph, dvCyl, dvAx)) : [];
+
+    // Transpose and find matches
+    const transposed = transposeCompKTPrescription(dvSph, dvCyl, dvAx);
+    const transposedMatches = brandData["COMP_KT"] ?
+        brandData["COMP_KT"].filter(item =>
+            matchesCompKTRange(item.range, transposed.sphere, transposed.cylinder, transposed.axis)
+        ) : [];
+
+    let allMatches = [];
+    let searchStrategy = '';
+
+    // Strategy: First check original, then transposed, combine if both have matches
+    if (originalMatches.length > 0 && transposedMatches.length === 0) {
+        // Only original matches found
+        allMatches = originalMatches.map(m => ({ ...m, isTransposed: false }));
+        searchStrategy = `COMP_KT - Found ${originalMatches.length} match(es) using original prescription`;
+    } else if (originalMatches.length === 0 && transposedMatches.length > 0) {
+        // Only transposed matches found
+        allMatches = transposedMatches.map(m => ({ ...m, isTransposed: true }));
+        searchStrategy = `COMP_KT - Found ${transposedMatches.length} match(es) using transposed prescription`;
+    } else if (originalMatches.length > 0 && transposedMatches.length > 0) {
+        // Both have matches - combine and sort by priority
+        allMatches = [
+            ...originalMatches.map(m => ({ ...m, isTransposed: false })),
+            ...transposedMatches.map(m => ({ ...m, isTransposed: true }))
+        ];
+        searchStrategy = `COMP_KT - Found matches in both original (${originalMatches.length}) and transposed (${transposedMatches.length}), sorted by priority`;
+    } else {
+        // No matches found
+        searchStrategy = `COMP_KT - No matches found for axis ${dvAx}° (mapped to ${mapAxisForCompKT(dvAx)}°)`;
+    }
+
+    // Sort by priority if we have matches
+    if (allMatches.length > 0) {
+        allMatches.sort((a, b) => {
+            const priorityA = getCompKTPriority(a.range);
+            const priorityB = getCompKTPriority(b.range);
+            return priorityA - priorityB;
+        });
+    }
+
+    const mappedAxis = mapAxisForCompKT(dvAx);
+
+    return {
+        original: { sphere: dvSph, cylinder: dvCyl, axis: dvAx },
+        transposed: transposed,
+        mappedAxis: mappedAxis,
+        calculatedAdd: calculatedAdd,
+        calculatedNV: calculatedNV,
+        matches: allMatches,
+        bestMatch: allMatches.length > 0 ? allMatches[0] : null,
+        searchStrategy: `${searchStrategy}. Priority: +/+ > -/- > mixed signs`
+    };
+};
+
+/**
+ * Check if prescription matches Progressive COMP range
+ * @param {string} rangeStr - Range string from data (e.g., "+2/-2, 180°", "-2/-1, 90°")
+ * @param {number} sphere - Sphere value
+ * @param {number} cylinder - Cylinder value
+ * @param {number} axis - Axis value
+ * @returns {boolean} True if matches
+ */
+export const matchesProgressiveCompRange = (rangeStr, sphere, cylinder, axis) => {
+    if (!rangeStr) return false;
+
+    const sph = parseFloat(sphere) || 0;
+    const cyl = parseFloat(cylinder) || 0;
+    const ax = parseFloat(axis) || 0;
+
+    // Parse range with comma: "+2/-2, 180°" or "-2/-1, 90°" or "+2/+1, 180°"
+    const match = rangeStr.match(/([-+]?\d+)\/([-+]?\d+),\s*(\d+)°/);
+    if (!match) return false;
+
+    const rangeSph = parseInt(match[1]);
+    const rangeCyl = parseInt(match[2]);
+    const rangeAxis = parseInt(match[3]);
+
+    // Map the input axis
+    const mappedAxis = mapAxisForCompKT(ax);
+    if (mappedAxis !== rangeAxis) {
+        return false;
+    }
+
+    // Get sphere and cylinder range categories for input values
+    const sphCategory = getCompKTSphereRange(sph);
+    const cylCategory = getCompKTCylinderRange(cyl);
+
+    // Get sphere and cylinder range categories for range values
+    const rangeSphCategory = getCompKTSphereRange(rangeSph);
+    const rangeCylCategory = getCompKTCylinderRange(rangeCyl);
+
+    // Check sign matches
+    const sphSign = sph >= 0 ? 1 : -1;
+    const cylSign = cyl >= 0 ? 1 : -1;
+    const rangeSphSign = rangeSph >= 0 ? 1 : -1;
+    const rangeCylSign = rangeCyl >= 0 ? 1 : -1;
+
+    // Match sphere: category must match and sign must match
+    if (sphCategory !== rangeSphCategory || sphSign !== rangeSphSign) {
+        return false;
+    }
+
+    // Match cylinder: category must match and sign must match
+    if (cylCategory !== rangeCylCategory || cylSign !== rangeCylSign) {
+        return false;
+    }
+
+    return true;
+};
+
+/**
+ * Get priority score for Progressive COMP matches
+ * Priority: 1. +,+ (both positive)  2. -,- (both negative)  3. +,- or -,+ (mixed)
+ * @param {string} rangeStr - Range string
+ * @returns {number} Priority score (lower is better)
+ */
+export const getProgressiveCompPriority = (rangeStr) => {
+    const match = rangeStr.match(/([-+]?\d+)\/([-+]?\d+),/);
+    if (!match) return 999;
+
+    const sphSign = match[1].startsWith('-') ? -1 : 1;
+    const cylSign = match[2].startsWith('-') ? -1 : 1;
+
+    // Priority 1: Both positive
+    if (sphSign > 0 && cylSign > 0) return 1;
+    // Priority 2: Both negative
+    if (sphSign < 0 && cylSign < 0) return 2;
+    // Priority 3: Mixed signs
+    return 3;
+};
+
+/**
+ * Find Progressive COMP matching options from brand data
+ * @param {object} brandData - Brand data object
+ * @param {number} dvSphere - Distance Vision sphere
+ * @param {number} dvCylinder - Distance Vision cylinder
+ * @param {number} dvAxis - Distance Vision axis
+ * @param {number} nvSphere - Near Vision sphere (optional)
+ * @param {number} addPower - ADD power (optional)
+ * @returns {object} Calculation results with best matches for Progressive COMP
+ */
+export const findProgressiveCompOptions = (brandData, dvSphere, dvCylinder, dvAxis, nvSphere = null, addPower = null) => {
+    if (!brandData) {
+        return { error: 'Brand data not available' };
+    }
+
+    // Validate 0.25 intervals
+    if (!validateQuarterInterval(dvSphere)) {
+        return { error: 'DV Sphere value must be in 0.25 intervals' };
+    }
+    if (!validateQuarterInterval(dvCylinder)) {
+        return { error: 'DV Cylinder value must be in 0.25 intervals' };
+    }
+
+    const dvSph = parseFloat(dvSphere) || 0;
+    const dvCyl = parseFloat(dvCylinder) || 0;
+    const dvAx = parseFloat(dvAxis) || 0;
+
+    // Calculate ADD or NV if one is provided
+    let calculatedAdd = addPower;
+    let calculatedNV = nvSphere;
+
+    if (nvSphere && !addPower) {
+        // Calculate ADD = NV - DV
+        calculatedAdd = parseFloat(nvSphere) - dvSph;
+    } else if (addPower && !nvSphere) {
+        // Calculate NV = DV + ADD
+        calculatedNV = dvSph + parseFloat(addPower);
+    }
+
+    // Validate ADD range (1.0 to 3.0)
+    if (calculatedAdd !== null && (calculatedAdd < 1.0 || calculatedAdd > 3.0)) {
+        return { error: 'ADD Power must be between 1.0 and 3.0' };
+    }
+
+    // Cylinders must not be 0 for Progressive COMP
+    if (dvCyl === 0) {
+        return { error: 'Cylinder must be non-zero for Progressive COMP calculations' };
+    }
+
+    // Find matches for original prescription
+    const originalMatches = brandData["PROGRESSIVE_COMP"] ?
+        brandData["PROGRESSIVE_COMP"].filter(item => matchesProgressiveCompRange(item.range, dvSph, dvCyl, dvAx)) : [];
+
+    // Transpose and find matches
+    const transposed = transposeCompKTPrescription(dvSph, dvCyl, dvAx);
+    const transposedMatches = brandData["PROGRESSIVE_COMP"] ?
+        brandData["PROGRESSIVE_COMP"].filter(item =>
+            matchesProgressiveCompRange(item.range, transposed.sphere, transposed.cylinder, transposed.axis)
+        ) : [];
+
+    let allMatches = [];
+    let searchStrategy = '';
+
+    // Strategy: First check original, then transposed, combine if both have matches
+    if (originalMatches.length > 0 && transposedMatches.length === 0) {
+        // Only original matches found
+        allMatches = originalMatches.map(m => ({ ...m, isTransposed: false }));
+        searchStrategy = `Progressive COMP - Found ${originalMatches.length} match(es) using original prescription`;
+    } else if (originalMatches.length === 0 && transposedMatches.length > 0) {
+        // Only transposed matches found
+        allMatches = transposedMatches.map(m => ({ ...m, isTransposed: true }));
+        searchStrategy = `Progressive COMP - Found ${transposedMatches.length} match(es) using transposed prescription`;
+    } else if (originalMatches.length > 0 && transposedMatches.length > 0) {
+        // Both have matches - combine and sort by priority
+        allMatches = [
+            ...originalMatches.map(m => ({ ...m, isTransposed: false })),
+            ...transposedMatches.map(m => ({ ...m, isTransposed: true }))
+        ];
+        searchStrategy = `Progressive COMP - Found matches in both original (${originalMatches.length}) and transposed (${transposedMatches.length}), sorted by priority`;
+    } else {
+        // No matches found
+        searchStrategy = `Progressive COMP - No matches found for axis ${dvAx}° (mapped to ${mapAxisForCompKT(dvAx)}°)`;
+    }
+
+    // Sort by priority if we have matches
+    if (allMatches.length > 0) {
+        allMatches.sort((a, b) => {
+            const priorityA = getProgressiveCompPriority(a.range);
+            const priorityB = getProgressiveCompPriority(b.range);
+            return priorityA - priorityB;
+        });
+    }
+
+    const mappedAxis = mapAxisForCompKT(dvAx);
+
+    return {
+        original: { sphere: dvSph, cylinder: dvCyl, axis: dvAx },
+        transposed: transposed,
+        mappedAxis: mappedAxis,
+        calculatedAdd: calculatedAdd,
+        calculatedNV: calculatedNV,
+        matches: allMatches,
+        bestMatch: allMatches.length > 0 ? allMatches[0] : null,
+        searchStrategy: `${searchStrategy}. Priority: +/+ > -/- > mixed signs`
     };
 };

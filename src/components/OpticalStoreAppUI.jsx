@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { availableBrands, loadBrandData } from '../utils/brandDataLoader';
-import { findLensOptions, findAddPowerOptions, findNearVisionOptions, findCylKTOptions, validateQuarterInterval } from '../utils/prescriptionCalculations';
+import { findLensOptions, findAddPowerOptions, findNearVisionOptions, findCylKTOptions, findCompKTOptions, findProgressiveCylOptions, findProgressiveCompOptions, validateQuarterInterval } from '../utils/prescriptionCalculations';
 
 const OpticalStoreAppUI = () => {
   // Brand selection state
@@ -144,7 +144,7 @@ const OpticalStoreAppUI = () => {
       });
     }
 
-    // Check if cylinder value is provided (DV or NV) - trigger CYL_KT calculation
+    // Check if cylinder value is provided - determine which calculation type
     if (dvCylinder !== 0 || nvCylinder !== 0) {
       // Use whichever cylinder is non-zero
       const cylToUse = dvCylinder !== 0 ? dvCylinder : nvCylinder;
@@ -154,7 +154,23 @@ const OpticalStoreAppUI = () => {
       setCalculationError(null);
 
       try {
-        const results = findCylKTOptions(brandData, cylToUse, axisToUse);
+        let results;
+
+        // If sphere is also provided, use COMP_KT calculation
+        if (dvSphere !== 0) {
+          // COMP_KT calculation (sphere + cylinder + axis)
+          results = findCompKTOptions(
+            brandData,
+            dvSphere,
+            cylToUse,
+            axisToUse,
+            nvSphere !== 0 ? nvSphere : null,
+            addPower !== 0 ? addPower : null
+          );
+        } else {
+          // CYL_KT calculation (only cylinder + axis)
+          results = findCylKTOptions(brandData, cylToUse, axisToUse);
+        }
 
         if (results.error) {
           setCalculationError(results.error);
@@ -163,7 +179,7 @@ const OpticalStoreAppUI = () => {
           setCalculationResults(results);
         }
       } catch (error) {
-        setCalculationError('Error calculating CYL_KT options: ' + error.message);
+        setCalculationError('Error calculating lens options: ' + error.message);
       } finally {
         setIsCalculating(false);
       }
@@ -216,7 +232,118 @@ const OpticalStoreAppUI = () => {
       return;
     }
 
-    // Validation for Near Vision calculation
+    const dvSphere = parseFloat(nearVisionCalculation.distanceVision.sphere) || 0;
+    const dvCylinder = parseFloat(nearVisionCalculation.distanceVision.cylinder) || 0;
+    const dvAxis = parseFloat(nearVisionCalculation.distanceVision.axis) || 0;
+    const nvSphere = parseFloat(nearVisionCalculation.nearVision.sphere) || 0;
+    const addPower = parseFloat(nearVisionCalculation.addPower) || 0;
+
+    // Determine calculation type based on input
+    // Progressive COMP: sphere + cylinder + axis all provided
+    // Progressive CYL: only cylinder + axis (sphere = 0)
+    // Progressive SPH: only sphere (cylinder = 0)
+
+    if (dvCylinder !== 0) {
+      // Check if sphere is also provided → Progressive COMP
+      if (dvSphere !== 0) {
+        // Progressive COMP calculation
+
+        // Validate required fields
+        if (!nearVisionCalculation.distanceVision.sphere || nearVisionCalculation.distanceVision.sphere === "") {
+          setCalculationError('DV Sphere value is required for Progressive COMP');
+          return;
+        }
+
+        if (!nearVisionCalculation.distanceVision.cylinder || nearVisionCalculation.distanceVision.cylinder === "") {
+          setCalculationError('DV Cylinder value is required for Progressive COMP');
+          return;
+        }
+
+        if (!nearVisionCalculation.distanceVision.axis || nearVisionCalculation.distanceVision.axis === "") {
+          setCalculationError('DV Axis value is required for Progressive COMP');
+          return;
+        }
+
+        // Validate 0.25 intervals
+        if (!validateQuarterInterval(nearVisionCalculation.distanceVision.sphere) ||
+          !validateQuarterInterval(nearVisionCalculation.distanceVision.cylinder)) {
+          setCalculationError('Sphere and Cylinder values must be in 0.25 intervals (e.g., -0.25, -0.50, -0.75, etc.)');
+          return;
+        }
+
+        setIsCalculating(true);
+        setCalculationError(null);
+
+        try {
+          const results = findProgressiveCompOptions(
+            brandData,
+            nearVisionCalculation.distanceVision.sphere,
+            nearVisionCalculation.distanceVision.cylinder,
+            nearVisionCalculation.distanceVision.axis,
+            nvSphere !== 0 ? nvSphere : null,
+            addPower !== 0 ? addPower : null
+          );
+
+          if (results.error) {
+            setCalculationError(results.error);
+            setCalculationResults(null);
+          } else {
+            setCalculationResults(results);
+          }
+        } catch (error) {
+          setCalculationError('Error calculating Progressive COMP options: ' + error.message);
+        } finally {
+          setIsCalculating(false);
+        }
+        return;
+      } else {
+        // Progressive CYL calculation (cylinder + axis, no sphere)
+
+        // Validate required fields
+        if (!nearVisionCalculation.distanceVision.cylinder || nearVisionCalculation.distanceVision.cylinder === "") {
+          setCalculationError('DV Cylinder value is required for Progressive CYL');
+          return;
+        }
+
+        if (!nearVisionCalculation.distanceVision.axis || nearVisionCalculation.distanceVision.axis === "") {
+          setCalculationError('DV Axis value is required for Progressive CYL');
+          return;
+        }
+
+        // Validate 0.25 intervals
+        if (!validateQuarterInterval(nearVisionCalculation.distanceVision.cylinder)) {
+          setCalculationError('Cylinder value must be in 0.25 intervals (e.g., -0.25, -0.50, -0.75, etc.)');
+          return;
+        }
+
+        setIsCalculating(true);
+        setCalculationError(null);
+
+        try {
+          const results = findProgressiveCylOptions(
+            brandData,
+            nearVisionCalculation.distanceVision.cylinder,
+            nearVisionCalculation.distanceVision.axis
+          );
+
+          if (results.error) {
+            setCalculationError(results.error);
+            setCalculationResults(null);
+          } else {
+            setCalculationResults(results);
+          }
+        } catch (error) {
+          setCalculationError('Error calculating Progressive CYL options: ' + error.message);
+        } finally {
+          setIsCalculating(false);
+        }
+        return;
+      }
+    }
+
+    // Progressive SPH calculation (original logic)
+
+    // Validation for Progressive SPH
     if (!nearVisionCalculation.distanceVision.sphere || nearVisionCalculation.distanceVision.sphere === "") {
       setCalculationError('Distance Vision Sphere value is required');
       return;
@@ -236,16 +363,8 @@ const OpticalStoreAppUI = () => {
 
     // Validate 0.25 intervals
     if (!validateQuarterInterval(nearVisionCalculation.distanceVision.sphere) ||
-      !validateQuarterInterval(nearVisionCalculation.distanceVision.cylinder) ||
       !validateQuarterInterval(nearVisionCalculation.addPower)) {
       setCalculationError('Values must be in 0.25 intervals (e.g., -0.25, -0.50, -0.75, etc.)');
-      return;
-    }
-
-    // Validate cylinder is 0 for Progressive
-    const cylinderValue = parseFloat(nearVisionCalculation.distanceVision.cylinder) || 0;
-    if (cylinderValue !== 0) {
-      setCalculationError('Cylinder must be 0 for Progressive calculations');
       return;
     }
 
@@ -747,25 +866,39 @@ const OpticalStoreAppUI = () => {
                       </div>
                       <div className="card-body">
                         <div className="row">
-                          <div className="col-md-6">
+                          {/* Distance Vision Column */}
+                          <div className="col-md-4">
                             <h6 className="text-primary">Distance Vision (DV)</h6>
-                            {/* DV Fields */}
                             <div className="form-group">
-                              <label>DV Sphere (Sph) *</label>
+                              <label>DV Sphere (Sph)</label>
                               <input
                                 type="number"
                                 step="0.25"
                                 className="form-control"
                                 value={nearVisionCalculation.distanceVision.sphere}
-                                onChange={(e) =>
-                                  setNearVisionCalculation({
+                                onChange={(e) => {
+                                  const dvSph = e.target.value;
+                                  const newNVCalc = {
                                     ...nearVisionCalculation,
                                     distanceVision: {
                                       ...nearVisionCalculation.distanceVision,
-                                      sphere: e.target.value,
+                                      sphere: dvSph,
                                     },
-                                  })
-                                }
+                                  };
+
+                                  // Auto-calculate NV if ADD is provided: NV = DV + ADD
+                                  if (nearVisionCalculation.addPower && nearVisionCalculation.addPower !== "") {
+                                    const dv = parseFloat(dvSph) || 0;
+                                    const add = parseFloat(nearVisionCalculation.addPower) || 0;
+                                    const nv = dv + add;
+                                    newNVCalc.nearVision = {
+                                      ...newNVCalc.nearVision,
+                                      sphere: nv.toFixed(2)
+                                    };
+                                  }
+
+                                  setNearVisionCalculation(newNVCalc);
+                                }}
                                 placeholder="e.g., -2.50, +1.25"
                               />
                             </div>
@@ -781,6 +914,10 @@ const OpticalStoreAppUI = () => {
                                     ...nearVisionCalculation,
                                     distanceVision: {
                                       ...nearVisionCalculation.distanceVision,
+                                      cylinder: e.target.value,
+                                    },
+                                    nearVision: {
+                                      ...nearVisionCalculation.nearVision,
                                       cylinder: e.target.value,
                                     },
                                   })
@@ -803,36 +940,20 @@ const OpticalStoreAppUI = () => {
                                       ...nearVisionCalculation.distanceVision,
                                       axis: e.target.value,
                                     },
+                                    nearVision: {
+                                      ...nearVisionCalculation.nearVision,
+                                      axis: e.target.value,
+                                    },
                                   })
                                 }
-                                placeholder="1-180° (required if cylinder entered)"
+                                placeholder="1-180° (optional)"
                               />
                             </div>
                           </div>
-                          <div className="col-md-6">
-                            <h6 className="text-success">ADD Power</h6>
-                            <div className="form-group">
-                              <label>ADD Power *</label>
-                              <input
-                                type="number"
-                                step="0.25"
-                                className="form-control"
-                                value={nearVisionCalculation.addPower}
-                                onChange={(e) =>
-                                  setNearVisionCalculation({
-                                    ...nearVisionCalculation,
-                                    addPower: e.target.value,
-                                  })
-                                }
-                                placeholder="e.g., +1.00, +2.50"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="row">
-                          <div className="col-md-6">
-                            <h6 className="text-primary">Near Vision (NV)</h6>
-                            {/* NV Fields */}
+
+                          {/* Near Vision Column */}
+                          <div className="col-md-4">
+                            <h6 className="text-success">Near Vision (NV)</h6>
                             <div className="form-group">
                               <label>NV Sphere (Sph)</label>
                               <input
@@ -840,15 +961,26 @@ const OpticalStoreAppUI = () => {
                                 step="0.25"
                                 className="form-control"
                                 value={nearVisionCalculation.nearVision.sphere}
-                                onChange={(e) =>
-                                  setNearVisionCalculation({
+                                onChange={(e) => {
+                                  const nvSph = e.target.value;
+                                  const newNVCalc = {
                                     ...nearVisionCalculation,
                                     nearVision: {
                                       ...nearVisionCalculation.nearVision,
-                                      sphere: e.target.value,
+                                      sphere: nvSph,
                                     },
-                                  })
-                                }
+                                  };
+
+                                  // Auto-calculate ADD if DV is provided: ADD = NV - DV
+                                  if (nearVisionCalculation.distanceVision.sphere && nearVisionCalculation.distanceVision.sphere !== "") {
+                                    const nv = parseFloat(nvSph) || 0;
+                                    const dv = parseFloat(nearVisionCalculation.distanceVision.sphere) || 0;
+                                    const add = nv - dv;
+                                    newNVCalc.addPower = add.toFixed(2);
+                                  }
+
+                                  setNearVisionCalculation(newNVCalc);
+                                }}
                                 placeholder="e.g., -1.50, +2.00"
                               />
                             </div>
@@ -859,16 +991,8 @@ const OpticalStoreAppUI = () => {
                                 step="0.25"
                                 className="form-control"
                                 value={nearVisionCalculation.nearVision.cylinder}
-                                onChange={(e) =>
-                                  setNearVisionCalculation({
-                                    ...nearVisionCalculation,
-                                    nearVision: {
-                                      ...nearVisionCalculation.nearVision,
-                                      cylinder: e.target.value,
-                                    },
-                                  })
-                                }
-                                placeholder="e.g., -0.50, +1.00 (optional)"
+                                readOnly
+                                placeholder="Auto-synced from DV"
                               />
                             </div>
                             <div className="form-group">
@@ -879,17 +1003,45 @@ const OpticalStoreAppUI = () => {
                                 max="180"
                                 className="form-control"
                                 value={nearVisionCalculation.nearVision.axis}
-                                onChange={(e) =>
-                                  setNearVisionCalculation({
-                                    ...nearVisionCalculation,
-                                    nearVision: {
-                                      ...nearVisionCalculation.nearVision,
-                                      axis: e.target.value,
-                                    },
-                                  })
-                                }
-                                placeholder="1-180° (required if cylinder entered)"
+                                readOnly
+                                placeholder="Auto-synced from DV"
                               />
+                            </div>
+                          </div>
+
+                          {/* ADD Power Column */}
+                          <div className="col-md-4">
+                            <h6 className="text-info">ADD Power</h6>
+                            <div className="form-group">
+                              <label>ADD Power</label>
+                              <input
+                                type="number"
+                                step="0.25"
+                                className="form-control"
+                                value={nearVisionCalculation.addPower}
+                                onChange={(e) => {
+                                  const addPwr = e.target.value;
+                                  const newNVCalc = {
+                                    ...nearVisionCalculation,
+                                    addPower: addPwr,
+                                  };
+
+                                  // Auto-calculate NV if DV is provided: NV = DV + ADD
+                                  if (nearVisionCalculation.distanceVision.sphere && nearVisionCalculation.distanceVision.sphere !== "") {
+                                    const dv = parseFloat(nearVisionCalculation.distanceVision.sphere) || 0;
+                                    const add = parseFloat(addPwr) || 0;
+                                    const nv = dv + add;
+                                    newNVCalc.nearVision = {
+                                      ...newNVCalc.nearVision,
+                                      sphere: nv.toFixed(2)
+                                    };
+                                  }
+
+                                  setNearVisionCalculation(newNVCalc);
+                                }}
+                                placeholder="e.g., +1.00, +2.50"
+                              />
+                              <small className="text-muted">Auto-calculated from NV - DV if empty</small>
                             </div>
                           </div>
                         </div>
@@ -964,11 +1116,20 @@ const OpticalStoreAppUI = () => {
                                 {calculationResults.original.axis !== undefined && (
                                   <p><strong>Axis:</strong> {calculationResults.original.axis}°</p>
                                 )}
-                                {calculationResults.mappedAxis && (
+                                {calculationResults.mappedAxis && !calculationResults.calculatedAdd && !calculationResults.calculatedNV && (
                                   <p><strong>Mapped Axis (CYL_KT):</strong> {calculationResults.mappedAxis}°</p>
+                                )}
+                                {calculationResults.mappedAxis && (calculationResults.calculatedAdd || calculationResults.calculatedNV) && (
+                                  <p><strong>Mapped Axis (COMP_KT):</strong> {calculationResults.mappedAxis}°</p>
                                 )}
                                 {calculationResults.original.addPower && (
                                   <p><strong>ADD Power:</strong> {calculationResults.original.addPower}</p>
+                                )}
+                                {calculationResults.calculatedAdd && (
+                                  <p><strong>Calculated ADD:</strong> {calculationResults.calculatedAdd}</p>
+                                )}
+                                {calculationResults.calculatedNV && (
+                                  <p><strong>Calculated NV Sphere:</strong> {calculationResults.calculatedNV}</p>
                                 )}
                                 {calculationResults.categoryInfo && (
                                   <p><strong>Category:</strong> {calculationResults.categoryInfo.category}</p>
@@ -977,7 +1138,7 @@ const OpticalStoreAppUI = () => {
                             </div>
                           </div>
 
-                          {/* Transposed Prescription - Only for Single Vision */}
+                          {/* Transposed Prescription - For Single Vision and COMP_KT */}
                           {calculationResults.transposed && (
                             <div className="col-md-6 mb-3">
                               <div className="card">
@@ -988,7 +1149,11 @@ const OpticalStoreAppUI = () => {
                                   <p><strong>Sphere:</strong> {calculationResults.transposed.sphere}</p>
                                   <p><strong>Cylinder:</strong> {calculationResults.transposed.cylinder}</p>
                                   <p><strong>Axis:</strong> {calculationResults.transposed.axis}°</p>
-                                  <small className="text-muted">Used for category determination</small>
+                                  {(calculationResults.calculatedAdd || calculationResults.calculatedNV) ? (
+                                    <small className="text-muted">Used for priority matching (COMP_KT)</small>
+                                  ) : (
+                                    <small className="text-muted">Used for category determination</small>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1001,13 +1166,16 @@ const OpticalStoreAppUI = () => {
                             <h5 className="text-success">
                               <i className="fas fa-star mr-2"></i>
                               Best Matching Lens Option
+                              {calculationResults.bestMatch.isTransposed && (
+                                <span className="badge badge-info ml-2">Transposed Match</span>
+                              )}
                             </h5>
                             <div className="card">
                               <div className="card-body">
                                 <h6 className="card-title">Range: {calculationResults.bestMatch.range}</h6>
                                 <div className="row">
                                   {Object.entries(calculationResults.bestMatch).map(([key, value]) => {
-                                    if (key !== 'range' && value !== undefined) {
+                                    if (key !== 'range' && key !== 'isTransposed' && value !== undefined) {
                                       return (
                                         <div key={key} className="col-md-3 col-sm-6 mb-2">
                                           <div className="text-center">
@@ -1026,7 +1194,7 @@ const OpticalStoreAppUI = () => {
                         )}
 
                         {/* All Matches */}
-                        {calculationResults.matches && calculationResults.matches.length > 1 && (
+                        {/* {calculationResults.matches && calculationResults.matches.length > 1 && (
                           <div className="mt-4">
                             <h6 className="text-info">
                               <i className="fas fa-list mr-2"></i>
@@ -1037,10 +1205,15 @@ const OpticalStoreAppUI = () => {
                                 <div key={index} className="col-md-6 col-lg-4 mb-3">
                                   <div className="card h-100">
                                     <div className="card-body">
-                                      <h6 className="card-title">{match.range}</h6>
+                                      <h6 className="card-title">
+                                        {match.range}
+                                        {match.isTransposed && (
+                                          <span className="badge badge-info ml-2 small">Transposed</span>
+                                        )}
+                                      </h6>
                                       <div className="row">
                                         {Object.entries(match).map(([key, value]) => {
-                                          if (key !== 'range' && value !== undefined) {
+                                          if (key !== 'range' && key !== 'isTransposed' && value !== undefined) {
                                             return (
                                               <div key={key} className="col-6 mb-1">
                                                 <small className="text-muted">{key}:</small>
@@ -1058,7 +1231,7 @@ const OpticalStoreAppUI = () => {
                               ))}
                             </div>
                           </div>
-                        )}
+                        )} */}
 
                         {/* No Results Message */}
                         {(!calculationResults.bestMatch && (!calculationResults.matches || calculationResults.matches.length === 0)) && (
@@ -1077,133 +1250,6 @@ const OpticalStoreAppUI = () => {
                   </div>
                 </div>
               )}
-
-              {/* Information Panel */}
-              <div className="row mt-4">
-                <div className="col-12">
-                  <div className="card">
-                    <div className="card-header bg-secondary text-white">
-                      <h5 className="mb-0">
-                        <i className="fas fa-info-circle mr-2"></i>
-                        Priority Logic & Rules
-                      </h5>
-                    </div>
-                    <div className="card-body">
-                      <div className="row">
-                        <div className="col-md-6">
-                          <h6 className="text-primary">Priority Order:</h6>
-                          <ul className="list-unstyled">
-                            <li><strong>1. Minus Comp:</strong> Same negative signs (both - sphere and - cylinder)</li>
-                            <li><strong>2. Plus Comp:</strong> Same positive signs (both + sphere and + cylinder)</li>
-                            <li><strong>3. SV Cross Comp:</strong> Mixed signs that remain mixed after transpose</li>
-                          </ul>
-                        </div>
-                        <div className="col-md-6">
-                          <h6 className="text-success">Validation Rules:</h6>
-                          <ul className="list-unstyled">
-                            <li><strong>0.25 Intervals:</strong> All values must be in 0.25 increments</li>
-                            <li><strong>Sphere Required:</strong> Sphere value is mandatory</li>
-                            <li><strong>Cylinder Optional:</strong> Can be empty (treated as 0)</li>
-                            <li><strong>Axis Optional:</strong> Not considered in single vision</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Examples */}
-              <div className="row mt-4">
-                <div className="col-12">
-                  <div className="card">
-                    <div className="card-header bg-dark text-white">
-                      <h5 className="mb-0">
-                        <i className="fas fa-calculator mr-2"></i>
-                        Example Prescriptions
-                      </h5>
-                    </div>
-                    <div className="card-body">
-                      <div className="row">
-                        <div className="col-md-4">
-                          <div className="card border-danger">
-                            <div className="card-header bg-danger text-white">
-                              <h6 className="mb-0">Minus Comp Example</h6>
-                            </div>
-                            <div className="card-body">
-                              <p><strong>Input:</strong> Sph -2.5, Cyl -1.0</p>
-                              <p><strong>Expected:</strong> Minus Comp category</p>
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => {
-                                  setPrescription({
-                                    sphere: "-2.5",
-                                    cylinder: "-1.0",
-                                    axis: "90",
-                                  });
-                                  clearResults();
-                                }}
-                              >
-                                Try This Example
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="col-md-4">
-                          <div className="card border-success">
-                            <div className="card-header bg-success text-white">
-                              <h6 className="mb-0">Plus Comp Example</h6>
-                            </div>
-                            <div className="card-body">
-                              <p><strong>Input:</strong> Sph +2.5, Cyl +1.5</p>
-                              <p><strong>Expected:</strong> Plus Comp category</p>
-                              <button
-                                className="btn btn-sm btn-outline-success"
-                                onClick={() => {
-                                  setPrescription({
-                                    sphere: "2.5",
-                                    cylinder: "1.5",
-                                    axis: "180",
-                                  });
-                                  clearResults();
-                                }}
-                              >
-                                Try This Example
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="col-md-4">
-                          <div className="card border-info">
-                            <div className="card-header bg-info text-white">
-                              <h6 className="mb-0">Cross Comp Example</h6>
-                            </div>
-                            <div className="card-body">
-                              <p><strong>Input:</strong> Sph +1.0, Cyl -1.5</p>
-                              <p><strong>Expected:</strong> SV Cross Comp category</p>
-                              <button
-                                className="btn btn-sm btn-outline-info"
-                                onClick={() => {
-                                  setPrescription({
-                                    sphere: "1.0",
-                                    cylinder: "-1.5",
-                                    axis: "90",
-                                  });
-                                  clearResults();
-                                }}
-                              >
-                                Try This Example
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
