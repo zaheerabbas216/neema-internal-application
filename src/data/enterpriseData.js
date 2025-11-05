@@ -502,23 +502,35 @@ const enterpriseData = {
             ARC: 1000,
             HC_PG: 1200,
             ARC_PG: 1500,
-            ARC_POLY: "-",
+            ARC_PC_POLY: "-",
             BLUCUT: 1500,
             BLUCUT_PC_POLY: "-",
             PG_BC_KT_GREEN: "-",
-            PG_BC_KT_BLUE: "-",
+            PG_BC_KT_BLUE: "-"
         },
         {
-            range: "+3/+1,+2/+2 180°",
+            range: "+3/+1 180°",
             HC: 850,
             ARC: 1000,
             HC_PG: 1200,
             ARC_PG: "-",
-            ARC_POLY: "-",
+            ARC_PC_POLY: "-",
             BLUCUT: 1500,
             BLUCUT_PC_POLY: "-",
             PG_BC_KT_GREEN: "-",
-            PG_BC_KT_BLUE: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+2/+2 180°",
+            HC: 850,
+            ARC: 1000,
+            HC_PG: 1200,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: 1500,
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
         },
         {
             range: "+2/+1 90°",
@@ -526,14 +538,349 @@ const enterpriseData = {
             ARC: 1200,
             HC_PG: 1500,
             ARC_PG: "-",
-            ARC_POLY: "-",
+            ARC_PC_POLY: "-",
             BLUCUT: "-",
             BLUCUT_PC_POLY: "-",
             PG_BC_KT_GREEN: "-",
-            PG_BC_KT_BLUE: "-",
+            PG_BC_KT_BLUE: "-"
         },
+        {
+            range: "+3/+1 90°",
+            HC: 900,
+            ARC: "-",
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+2/+2 90°",
+            HC: 900,
+            ARC: "-",
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+2/+1 45°",
+            HC: 800,
+            ARC: 1200,
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+2/+1 135°",
+            HC: 800,
+            ARC: 1200,
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+3/+1 45°",
+            HC: 900,
+            ARC: "-",
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+3/+1 135°",
+            HC: 900,
+            ARC: "-",
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+2/+2 45°",
+            HC: 900,
+            ARC: "-",
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+2/+2 135°",
+            HC: 900,
+            ARC: "-",
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-2/-1 90°",
+            HC: 800,
+            ARC: 1000,
+            HC_PG: 1200,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: 1500,
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-3/-1 90°",
+            HC: 850,
+            ARC: "-",
+            HC_PG: 1500,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: 2000,
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-2/-2 90°",
+            HC: 850,
+            ARC: "-",
+            HC_PG: 1500,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: 2000,
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+3/+2 90°",
+            HC: 900,
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-3/-2 180°",
+            HC: 900,
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-4/-1 90°",
+            HC: 1000,
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-2/-3 90°",
+            HC: 1500,
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-5/-1 90°",
+            HC: 1500,
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-2/-1 180°",
+            HC: 800,
+            ARC: "-",
+            HC_PG: 1200,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-3/-1 180°",
+            HC: 850,
+            ARC: "-",
+            HC_PG: 1500,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-2/-2 180°",
+            HC: 850,
+            ARC: "-",
+            HC_PG: 1500,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-2/-1 135°",
+            HC: 850,
+            ARC: "-",
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "-2/-1 45°",
+            HC: 850,
+            ARC: "-",
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+1/-2 90°",
+            HC: 850,
+            ARC: "-",
+            HC_PG: 1800,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: 2500,
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+2/-3 90°",
+            HC: 1000,
+            ARC: "-",
+            HC_PG: 2000,
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: 2800,
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+3/-4 90°",
+            HC: 1500,
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+1/-2 180°",
+            HC: 850,
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+1/-2 135°",
+            HC: 1000,
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+1/-2 45°",
+            HC: 1000,
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        },
+        {
+            range: "+2/-3 180°",
+            HC: 1500,
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_PC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-",
+            PG_BC_KT_GREEN: "-",
+            PG_BC_KT_BLUE: "-"
+        }
     ],
-
     PROGRESSIVE_SPH: [
         {
             range: "+3/+ ADD",
@@ -541,9 +888,9 @@ const enterpriseData = {
             ARC: 2000,
             HC_PG: 3000,
             ARC_PG: 4000,
-            ARC_POLY: 1500,
+            ARC_POLY: 4500,
             BLUCUT: 3000,
-            BLUCUT_PC_POLY: 4800,
+            BLUCUT_PC_POLY: 4800
         },
         {
             range: "+4/+ ADD",
@@ -553,7 +900,7 @@ const enterpriseData = {
             ARC_PG: "-",
             ARC_POLY: "-",
             BLUCUT: "-",
-            BLUCUT_PC_POLY: "-",
+            BLUCUT_PC_POLY: "-"
         },
         {
             range: "-2/+ ADD",
@@ -563,9 +910,193 @@ const enterpriseData = {
             ARC_PG: 4000,
             ARC_POLY: 4500,
             BLUCUT: 3000,
-            BLUCUT_PC_POLY: 4800,
+            BLUCUT_PC_POLY: 4800
         },
+        {
+            range: "-3/+ ADD",
+            HC: 1500,
+            ARC: 2200,
+            HC_PG: 3500,
+            ARC_PG: 4000,
+            ARC_POLY: 5000,
+            BLUCUT: 3500,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "-4/+ ADD",
+            HC: 1800,
+            ARC: 2500,
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-"
+        }
     ],
+    PROGRESSIVE__CYL: [
+        {
+            range: "+2, 90",
+            HC: 1200,
+            ARC: 2000,
+            HC_PG: 2500,
+            ARC_PG: 4000,
+            ARC_POLY: "-",
+            BLUCUT: 3000,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "+2, 180",
+            HC: 1200,
+            ARC: 2000,
+            HC_PG: 2500,
+            ARC_PG: 4000,
+            ARC_POLY: "-",
+            BLUCUT: 3000,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "-2, 90",
+            HC: 1200,
+            ARC: 2000,
+            HC_PG: 2500,
+            ARC_PG: 4000,
+            ARC_POLY: "-",
+            BLUCUT: 3000,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "-2, 180",
+            HC: 1200,
+            ARC: 2000,
+            HC_PG: 2500,
+            ARC_PG: 4000,
+            ARC_POLY: "-",
+            BLUCUT: 3000,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "+3, 180",
+            HC: 1800,
+            ARC: 2500,
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "+3, 90",
+            HC: 1800,
+            ARC: 2500,
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "-3 180",
+            HC: 1800,
+            ARC: 2500,
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "-3, 90",
+            HC: 1800,
+            ARC: 2500,
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_POLY: "-",
+            BLUCUT: "-",
+            BLUCUT_PC_POLY: "-"
+        }
+    ],
+    PROGRESSIVE_COMP: [
+        {
+            range: "+2/-2, 180°",
+            HC: 1200,
+            ARC: 2000,
+            HC_PG: 3000,
+            ARC_PG: 4000,
+            ARC_POLY: "-",
+            BLUCUT: 3000,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "+2/-2, 90°",
+            HC: 1200,
+            ARC: 2000,
+            HC_PG: 3000,
+            ARC_PG: 4000,
+            ARC_POLY: "-",
+            BLUCUT: 3000,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "+2/+2, 180°",
+            HC: "-",
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_POLY: "-",
+            BLUCUT: 3500,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "+3/+1, 180°",
+            HC: "-",
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_POLY: "-",
+            BLUCUT: 3500,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "+2/+1, 180°",
+            HC: 1200,
+            ARC: 2000,
+            HC_PG: 3500,
+            ARC_PG: 4000,
+            ARC_POLY: "-",
+            BLUCUT: 3000,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "-2/-1, 90°",
+            HC: "-",
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_POLY: "-",
+            BLUCUT: 3500,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "-2/-2, 90°",
+            HC: "-",
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_POLY: "-",
+            BLUCUT: 3500,
+            BLUCUT_PC_POLY: "-"
+        },
+        {
+            range: "-3/-1, 90°",
+            HC: "-",
+            ARC: "-",
+            HC_PG: "-",
+            ARC_PG: "-",
+            ARC_POLY: "-",
+            BLUCUT: 3500,
+            BLUCUT_PC_POLY: "-"
+        }
+    ]
 };
 
 export default enterpriseData;
